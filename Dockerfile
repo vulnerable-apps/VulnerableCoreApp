@@ -1,13 +1,18 @@
-# syntax=docker/dockerfile:1
-
-# Old .NET docker images: https://devblogs.microsoft.com/dotnet/net-core-2-1-container-images-will-be-deleted-from-docker-hub/
-# 2.0 is not available so we are pointing to 2.1 to see if that works.
-FROM mcr.microsoft.com/dotnet/sdk:2.1 as build-env
+# Use the latest supported .NET 6 SDK
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build-env
 WORKDIR /src
-COPY *.csproj .
+
+# Copy and restore dependencies
+COPY *.csproj ./
 RUN dotnet restore
-COPY . .
+
+# Copy the remaining application files and build the project
+COPY . ./
 RUN dotnet publish -c Release -o /publish
-LABEL name="vulnerable-core-app"
+
+# Use the ASP.NET runtime image for production (lighter than SDK)
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build-env /publish ./
 EXPOSE 80
-ENTRYPOINT ["dotnet", "run"]
+ENTRYPOINT ["dotnet", "VulnerableCoreApp.dll"]
